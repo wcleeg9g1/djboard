@@ -1,0 +1,142 @@
+from django.shortcuts import render, get_object_or_404, redirect
+# from numpy import generic
+# from django.http import HttpResponse
+from .models import Question, Answer
+from django.utils import timezone
+from .forms import QuestionForm, AnswerForm
+from django.http import HttpResponseNotAllowed
+from django.core.paginator import Paginator
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+
+# def index(request):
+    # return HttpResponse("hello django World ! ")
+def index(request):
+    page = request.GET.get('page', '1') # GET 방식으로 호출된 URL에서 page값을 가져올 때 사용
+    question_list = Question.objects.order_by('-create_date')
+    paginator = Paginator(question_list, 10) # 페이지당 10개씩 보여주기 
+    page_obj = paginator.get_page(page)
+    # context = {'question_list': question_list}
+    context = {'question_list': page_obj}
+    return render(request, 'djboard/question_list.html', context)
+
+def detail(request, question_id):
+    # question = Question.objects.get(id=question_id)
+    question = get_object_or_404(Question, pk=question_id)
+    context = {'question': question}
+    return render(request, 'djboard/question_detail.html', context)
+
+
+## 제네릭뷰 
+# class IndexView(generic.ListView):
+#     def get_queryset(self):
+#         return Question.objects.order_by('-create_date')
+
+# class DetailView(generic.DetailView):
+#     model = Question
+    
+# def answer_create(request, question_id):
+#     question = get_object_or_404(Question, pk=question_id)
+#     question.answer_set.create(content=request.POST.get('content'), create_date=timezone.now())
+#     return redirect('djboard:detail', question_id = question.id)
+
+# def answer_create2(request, question_id):
+#     """
+#     djboard 답변등록 
+#     """
+#     question = get_object_or_404(Question, pk=question_id)
+#     answer = Answer(question=question, content = request.POST.get('content'), create_date=timezone.now())
+#     answer.save()
+#     return redirect('djboard:detail', question_id=question.id)
+
+@login_required(login_url='common:login')
+def question_create(request):
+    if request.method == 'POST':
+        form = QuestionForm(request.POST)
+        if form.is_valid():
+            question = form.save(commit=False)
+            question.author = request.user # 로그인 계정 저장 
+            question.create_date = timezone.now()
+            question.save()
+            return redirect('djboard:index')
+    else:
+        form = QuestionForm()
+    context = {'form' : form }
+    return render(request, 'djboard/question_form.html', context)
+
+@login_required(login_url='common:login')
+def answer_create(request, question_id):
+    """
+    djboard 답변
+    """
+    question = get_object_or_404(Question, pk=question_id)
+    if request.method == "POST":
+        form = AnswerForm(request.POST)
+        if form.is_valid():
+            answer = form.save(commit=False)
+            answer.author = request.user # 로그인 계정 저장 
+            answer.create_date = timezone.now()
+            answer.question = question
+            answer.save()
+            return redirect('djboard:detail', question_id = question.id)
+    else:
+        form = AnswerForm()
+        # return HttpResponseNotAllowed('Only Post is possible')
+    context = {'question' : question, 'form' : form}
+    return render(request, 'djboard/question_detail.html', context)
+
+
+@login_required(login_url='common:login')
+def question_modify(request, question_id):
+    question = get_object_or_404(Question, pk=question_id)
+    if request.user != question.author:
+        messages.error(request, '수정권한이 없습니다')
+        return redirect('djboard:detail', question_id=question.id)
+    if request.method == "POST":
+        form = QuestionForm(request.POST, instance=question)
+        if form.is_valid():
+            question = form.save(commit=False)
+            question.modify_date = timezone.now()  # 수정일시 저장
+            question.save()
+            return redirect('djboard:detail', question_id=question.id)
+    else:
+        form = QuestionForm(instance=question)
+    context = {'form': form}
+    return render(request, 'djboard/question_form.html', context)
+
+
+@login_required(login_url='common:login')
+def question_delete(request, question_id):
+    question = get_object_or_404(Question, pk=question_id)
+    if request.user != question.author: 
+        messages.error(request, '삭제권한이 없습니다')
+        return redirect('djboard:detail', question_id=question.id)
+    question.delete()
+    return redirect('djboard:index')
+
+@login_required(login_url='common:login')
+def answer_modify(request, answer_id):
+    answer = get_object_or_404(Answer, pk=answer_id)
+    if request.user != answer.author:
+        messages.error(request,'수정권한이 없습니다')
+        return redirect('djboard:detail', question_id=answer.question.id)
+    if request.method =="POST":
+        form = AnswerForm(request.POST, instance=answer)
+        if form.is_valid():
+            answer = form.save(commit=False)
+            answer.modify_date = timezone.now()
+            answer.save()
+            return redirect('djboard:detail', question_id=answer.question.id)
+    else:
+        form = AnswerForm(instance=answer)
+    context = {'answer': answer, 'form': form}
+    return render(request, 'djboard/answer_form.html', context)
+
+@login_required(login_url='common:login')
+def answer_delete(request, answer_id):
+    answer = get_object_or_404(Answer, pk=answer_id)
+    if request.user != answer.author:
+        messages.error(request, '삭제권한이 없습니다')
+    else:
+        answer.delete()
+    return redirect('djboard:detail', question_id=answer.question.id)

@@ -1,0 +1,27 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" type="text/css" href="{% static 'bootstrap.min.css' %}">
+    <!-- djboard CSS -->
+    <link rel="stylesheet" type="text/css" href="{% static 'style.css' %}">
+    <!-- Bootstrap JS -->
+    <script src="{% static 'bootstrap.min.js' %}"></script>
+    <title>게시판</title>
+</head>
+<body>
+<!-- navi -->
+{% include "navbar.html" %}
+
+<!-- content -->
+{% block content %}
+{% endblock %}
+
+<!-- javascript -->
+{% block script %}
+{% endblock script %}
+</body>
+</html>
